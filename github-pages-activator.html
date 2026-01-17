@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Pages Activator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 { color: #58a6ff; margin-bottom: 10px; }
+        .subtitle { color: #8b949e; margin-bottom: 30px; }
+        label { display: block; margin-top: 20px; margin-bottom: 8px; color: #8b949e; }
+        input[type="password"], select {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+        }
+        .btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 25px;
+            width: 100%;
+        }
+        .btn:hover { background: #2ea043; }
+        .btn-all {
+            background: #8957e5;
+            margin-top: 10px;
+        }
+        .btn-all:hover { background: #a371f7; }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.success { display: block; background: #23863633; border: 1px solid #238636; color: #3fb950; }
+        .status.error { display: block; background: #da363333; border: 1px solid #da3633; color: #f85149; }
+        .status.info { display: block; background: #1f6feb33; border: 1px solid #1f6feb; color: #58a6ff; }
+        .results {
+            margin-top: 20px;
+        }
+        .result-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #161b22;
+            border-radius: 6px;
+            border-left: 3px solid #30363d;
+        }
+        .result-item.ok { border-left-color: #238636; }
+        .result-item.fail { border-left-color: #da3633; }
+        .result-item a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        .result-item a:hover { text-decoration: underline; }
+        .repo-name { font-weight: bold; }
+        .help {
+            margin-top: 30px;
+            padding: 15px;
+            background: #161b22;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #8b949e;
+        }
+        .help code {
+            background: #0d1117;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #f0883e;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌐 GitHub Pages Activator</h1>
+    <p class="subtitle">Active GitHub Pages → Démo live instantanée</p>
+    
+    <label>🔑 Token GitHub (scope: public_repo)</label>
+    <input type="password" id="token" placeholder="ghp_...">
+    
+    <label>📦 Repo</label>
+    <select id="repoSelect">
+        <option value="">-- Choisir un repo --</option>
+        <option value="One-Page-One-Mission">One-Page-One-Mission</option>
+        <option value="JPEG2DVB">JPEG2DVB</option>
+        <option value="quizz">quizz</option>
+        <option value="sstv">sstv</option>
+        <option value="Sisimic">Sisimic</option>
+        <option value="photo">photo</option>
+        <option value="code">code</option>
+    </select>
+    
+    <button class="btn" onclick="activate()">🚀 Activer Pages</button>
+    <button class="btn btn-all" onclick="activateAll()">⚡ Activer sur TOUS les repos</button>
+    
+    <div class="status" id="status"></div>
+    <div class="results" id="results"></div>
+    
+    <div class="help">
+        <strong>💡 Après activation :</strong><br><br>
+        • URL : <code>https://ericperret.github.io/nom-repo/</code><br>
+        • Délai : ~1 minute pour que ça soit en ligne<br>
+        • Si ton fichier principal n'est pas <code>index.html</code>, ajoute son nom dans l'URL
+    </div>
+
+    <script>
+        const OWNER = 'ericperret';
+        const REPOS = ['One-Page-One-Mission', 'JPEG2DVB', 'quizz', 'sstv', 'Sisimic', 'photo', 'code'];
+        
+        function showStatus(msg, type) {
+            const el = document.getElementById('status');
+            el.className = 'status ' + type;
+            el.textContent = msg;
+        }
+        
+        function addResult(repo, success, url) {
+            const el = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'result-item ' + (success ? 'ok' : 'fail');
+            if (success) {
+                div.innerHTML = `<span class="repo-name">${repo}</span> ✅<br><a href="${url}" target="_blank">${url}</a>`;
+            } else {
+                div.innerHTML = `<span class="repo-name">${repo}</span> ❌ ${url}`;
+            }
+            el.appendChild(div);
+        }
+        
+        async function activatePages(token, repo) {
+            const url = `https://api.github.com/repos/${OWNER}/${repo}/pages`;
+            
+            // Vérifier si déjà activé
+            const checkRes = await fetch(url, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+            
+            if (checkRes.ok) {
+                const data = await checkRes.json();
+                return { success: true, url: data.html_url, already: true };
+            }
+            
+            // Activer
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/vnd.github+json'
+                },
+                body: JSON.stringify({
+                    source: {
+                        branch: 'main',
+                        path: '/'
+                    }
+                })
+            });
+            
+            if (res.ok || res.status === 201) {
+                const data = await res.json();
+                return { success: true, url: data.html_url || `https://${OWNER}.github.io/${repo}/` };
+            } else {
+                const err = await res.json();
+                throw new Error(err.message || res.status);
+            }
+        }
+        
+        async function activate() {
+            const token = document.getElementById('token').value.trim();
+            const repo = document.getElementById('repoSelect').value;
+            
+            if (!token) { showStatus('❌ Token requis', 'error'); return; }
+            if (!repo) { showStatus('❌ Choisis un repo', 'error'); return; }
+            
+            showStatus('⏳ Activation en cours...', 'info');
+            document.getElementById('results').innerHTML = '';
+            
+            try {
+                const result = await activatePages(token, repo);
+                showStatus(result.already ? '✅ Déjà activé !' : '✅ Activé !', 'success');
+                addResult(repo, true, result.url);
+            } catch (err) {
+                showStatus(`❌ Erreur: ${err.message}`, 'error');
+                addResult(repo, false, err.message);
+            }
+        }
+        
+        async function activateAll() {
+            const token = document.getElementById('token').value.trim();
+            
+            if (!token) { showStatus('❌ Token requis', 'error'); return; }
+            
+            showStatus('⏳ Activation en cours...', 'info');
+            document.getElementById('results').innerHTML = '';
+            
+            let ok = 0;
+            for (const repo of REPOS) {
+                try {
+                    const result = await activatePages(token, repo);
+                    addResult(repo, true, result.url);
+                    ok++;
+                } catch (err) {
+                    addResult(repo, false, err.message);
+                }
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            showStatus(`✅ Terminé : ${ok}/${REPOS.length} repos activés`, 'success');
+        }
+    </script>
+</body>
+</html>
