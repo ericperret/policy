@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README Injector</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 { color: #58a6ff; margin-bottom: 30px; }
+        label { display: block; margin-top: 20px; margin-bottom: 8px; color: #8b949e; }
+        input[type="password"], input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+        }
+        input[type="file"] {
+            margin-top: 5px;
+        }
+        .btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 30px;
+            width: 100%;
+        }
+        .btn:hover { background: #2ea043; }
+        .btn:disabled { background: #484f58; cursor: not-allowed; }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.success { display: block; background: #23863633; border: 1px solid #238636; color: #3fb950; }
+        .status.error { display: block; background: #da363333; border: 1px solid #da3633; color: #f85149; }
+        .status.info { display: block; background: #1f6feb33; border: 1px solid #1f6feb; color: #58a6ff; }
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #161b22;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <h1>📄 README Injector</h1>
+    
+    <label>🔑 Token GitHub (scope: public_repo)</label>
+    <input type="password" id="token" placeholder="ghp_...">
+    
+    <label>📁 Fichier à injecter</label>
+    <input type="file" id="fileInput" accept=".md,.txt">
+    <div class="file-info" id="fileInfo" style="display:none;"></div>
+    
+    <label>📦 Repo cible</label>
+    <select id="repoSelect">
+        <option value="">-- Choisir un repo --</option>
+        <option value="One-Page-One-Mission">One-Page-One-Mission (Khéops)</option>
+        <option value="JPEG2DVB">JPEG2DVB (DVB-S tutorial)</option>
+        <option value="quizz">quizz (Medical quiz)</option>
+        <option value="sstv">sstv (Slow Scan TV)</option>
+        <option value="Sisimic">Sisimic (Seismic simulator)</option>
+        <option value="photo">photo (Perspective correction)</option>
+        <option value="code">code (Cryptanalysis)</option>
+    </select>
+    
+    <label>📝 Nom du fichier sur GitHub</label>
+    <input type="text" id="targetName" placeholder="README.md" value="README.md">
+    
+    <button class="btn" id="btnInject" onclick="inject()">🚀 Injecter</button>
+    
+    <div class="status" id="status"></div>
+
+    <script>
+        const OWNER = 'ericperret';
+        let fileContent = null;
+        let fileName = null;
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            fileName = file.name;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                fileContent = ev.target.result;
+                document.getElementById('fileInfo').style.display = 'block';
+                document.getElementById('fileInfo').textContent = `✓ ${fileName} (${fileContent.length} caractères)`;
+                document.getElementById('targetName').value = fileName;
+            };
+            reader.readAsText(file);
+        });
+        
+        function showStatus(msg, type) {
+            const el = document.getElementById('status');
+            el.className = 'status ' + type;
+            el.textContent = msg;
+        }
+        
+        async function inject() {
+            const token = document.getElementById('token').value.trim();
+            const repo = document.getElementById('repoSelect').value;
+            const targetName = document.getElementById('targetName').value.trim();
+            
+            if (!token) { showStatus('❌ Token requis', 'error'); return; }
+            if (!fileContent) { showStatus('❌ Charge un fichier', 'error'); return; }
+            if (!repo) { showStatus('❌ Choisis un repo', 'error'); return; }
+            if (!targetName) { showStatus('❌ Nom de fichier requis', 'error'); return; }
+            
+            showStatus('⏳ Injection en cours...', 'info');
+            
+            try {
+                const url = `https://api.github.com/repos/${OWNER}/${repo}/contents/${targetName}`;
+                
+                // Vérifier si existe (pour SHA)
+                let sha = null;
+                const checkRes = await fetch(url, {
+                    headers: { 'Authorization': `token ${token}` }
+                });
+                if (checkRes.ok) {
+                    const existing = await checkRes.json();
+                    sha = existing.sha;
+                }
+                
+                // Encoder base64
+                const contentB64 = btoa(unescape(encodeURIComponent(fileContent)));
+                
+                const body = {
+                    message: `📄 Update ${targetName}`,
+                    content: contentB64
+                };
+                if (sha) body.sha = sha;
+                
+                const res = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message || res.status);
+                }
+                
+                showStatus(`✅ ${targetName} injecté sur ${repo} !`, 'success');
+                
+            } catch (err) {
+                showStatus(`❌ Erreur: ${err.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
