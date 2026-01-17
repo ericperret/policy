@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Topics Updater - ericperret</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: #58a6ff; }
+        h2 { color: #8b949e; font-size: 1rem; margin-top: 30px; }
+        .token-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            margin-bottom: 15px;
+        }
+        .btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn:hover { background: #2ea043; }
+        .btn:disabled { background: #484f58; cursor: not-allowed; }
+        .btn-danger { background: #da3633; }
+        .btn-danger:hover { background: #f85149; }
+        .repo-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .repo-name {
+            color: #58a6ff;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .repo-desc {
+            color: #8b949e;
+            font-size: 0.85rem;
+            margin: 8px 0;
+        }
+        .topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .topic {
+            background: #388bfd26;
+            color: #58a6ff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .status.success { background: #238636; color: white; }
+        .status.error { background: #da3633; color: white; }
+        .status.pending { background: #1f6feb; color: white; }
+        .log {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry { margin: 4px 0; }
+        .log-success { color: #3fb950; }
+        .log-error { color: #f85149; }
+        .log-info { color: #58a6ff; }
+        .warning {
+            background: #f0883e22;
+            border: 1px solid #f0883e;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏷️ GitHub Topics Updater</h1>
+    <p>Met à jour les topics et descriptions de tous les repos <strong>ericperret</strong> en un clic.</p>
+    
+    <div class="warning">
+        ⚠️ <strong>Sécurité :</strong> Ce script tourne 100% localement dans ton navigateur. 
+        Le token n'est envoyé qu'à l'API GitHub, jamais ailleurs. Supprime le token après usage si tu veux.
+    </div>
+    
+    <input type="password" id="token" class="token-input" placeholder="...token ici...">
+    
+    <div>
+        <button class="btn" onclick="updateAll()">🚀 Mettre à jour TOUS les repos</button>
+        <button class="btn btn-danger" onclick="clearLog()">🗑️ Effacer le log</button>
+    </div>
+    
+    <div class="log" id="log"></div>
+    
+    <h2>📦 Repos à mettre à jour :</h2>
+    <div id="repos"></div>
+
+    <script>
+        const OWNER = 'ericperret';
+        
+        const REPOS = [
+            {
+                name: 'One-Page-One-Mission',
+                description: 'Acoustic drone tracking & fire control simulator - TDOA/Chan, Kalman, RANSAC, ISO 9613-1, Doppler. Pure HTML/JS.',
+                topics: [
+                    'acoustic-localization',
+                    'tdoa',
+                    'drone-detection',
+                    'counter-uas',
+                    'kalman-filter',
+                    'chan-algorithm',
+                    'ransac',
+                    'doppler',
+                    'fire-control',
+                    'goniometry',
+                    'signal-processing',
+                    'javascript',
+                    'simulation',
+                    'multilateration',
+                    'html5'
+                ]
+            },
+            {
+                name: 'JPEG2DVB',
+                description: 'Interactive DVB-S transmission tutorial - JPEG/DCT/Huffman to MPEG-TS, Reed-Solomon, QPSK/SRRC. Pure HTML/JS.',
+                topics: [
+                    'dvb-s',
+                    'mpeg-ts',
+                    'reed-solomon',
+                    'qpsk',
+                    'dct',
+                    'huffman',
+                    'convolutional-code',
+                    'video-compression',
+                    'satellite',
+                    'broadcast',
+                    'signal-processing',
+                    'educational',
+                    'tutorial',
+                    'javascript',
+                    'interactive'
+                ]
+            },
+            {
+                name: 'quizz',
+                description: 'Interactive quiz for mental health training and pediatric triage. Includes ISO-principle music therapy tool.',
+                topics: [
+                    'quiz',
+                    'mental-health',
+                    'psychiatry',
+                    'pediatric-triage',
+                    'medical-education',
+                    'healthcare',
+                    'musicotherapy',
+                    'self-assessment',
+                    'tropical-medicine',
+                    'martinique',
+                    'javascript',
+                    'html5'
+                ]
+            },
+            {
+                name: 'sstv',
+                description: 'Slow Scan Television encoder/decoder - TX and RX modes, Martin/Scottie formats. Browser-based, pure HTML/JS.',
+                topics: [
+                    'sstv',
+                    'slow-scan-tv',
+                    'ham-radio',
+                    'amateur-radio',
+                    'image-transmission',
+                    'audio-encoding',
+                    'web-audio-api',
+                    'signal-processing',
+                    'encoder',
+                    'decoder',
+                    'javascript'
+                ]
+            },
+            {
+                name: 'Sisimic',
+                description: 'Seismic building response simulator with TMD and base isolation. Real-time visualization, pure HTML/JS.',
+                topics: [
+                    'seismic-simulation',
+                    'earthquake',
+                    'structural-engineering',
+                    'tuned-mass-damper',
+                    'base-isolation',
+                    'structural-dynamics',
+                    'civil-engineering',
+                    'vibration',
+                    'javascript',
+                    'simulation'
+                ]
+            },
+            {
+                name: 'photo',
+                description: 'Perspective correction and image alignment tool for OCR/AI preprocessing. Straighten skewed documents. Pure HTML/JS.',
+                topics: [
+                    'perspective-correction',
+                    'image-alignment',
+                    'ocr-preprocessing',
+                    'document-scanner',
+                    'deskew',
+                    'homography',
+                    'image-processing',
+                    'javascript',
+                    'html5-canvas'
+                ]
+            },
+            {
+                name: 'code',
+                description: 'Classical cipher cryptanalysis toolkit - Vigenere, Beaufort, Caesar, XOR. Dictionary validation, Web Workers.',
+                topics: [
+                    'cryptanalysis',
+                    'cipher',
+                    'vigenere',
+                    'beaufort',
+                    'caesar-cipher',
+                    'xor-cipher',
+                    'frequency-analysis',
+                    'dictionary-attack',
+                    'codebreaking',
+                    'web-workers',
+                    'javascript'
+                ]
+            }
+        ];
+        
+        // Afficher les repos
+        function renderRepos() {
+            const container = document.getElementById('repos');
+            container.innerHTML = REPOS.map(repo => `
+                <div class="repo-card" id="card-${repo.name}">
+                    <div class="repo-name">${repo.name}</div>
+                    <div class="repo-desc">${repo.description}</div>
+                    <div class="topics">
+                        ${repo.topics.map(t => `<span class="topic">${t}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Log
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Mettre à jour un repo
+        async function updateRepo(token, repo) {
+            const url = `https://api.github.com/repos/${OWNER}/${repo.name}`;
+            
+            // 1. Mettre à jour description
+            log(`📝 ${repo.name}: mise à jour description...`, 'info');
+            
+            try {
+                const descResponse = await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        description: repo.description
+                    })
+                });
+                
+                if (!descResponse.ok) {
+                    throw new Error(`Description: ${descResponse.status} ${descResponse.statusText}`);
+                }
+                
+                log(`✅ ${repo.name}: description OK`, 'success');
+            } catch (err) {
+                log(`❌ ${repo.name}: ${err.message}`, 'error');
+                return false;
+            }
+            
+            // 2. Mettre à jour topics
+            log(`🏷️ ${repo.name}: mise à jour topics...`, 'info');
+            
+            try {
+                const topicsResponse = await fetch(`${url}/topics`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.mercy-preview+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        names: repo.topics
+                    })
+                });
+                
+                if (!topicsResponse.ok) {
+                    const errorData = await topicsResponse.json();
+                    throw new Error(`Topics: ${topicsResponse.status} - ${JSON.stringify(errorData)}`);
+                }
+                
+                log(`✅ ${repo.name}: topics OK (${repo.topics.length} topics)`, 'success');
+                
+                // Marquer la carte comme OK
+                const card = document.getElementById(`card-${repo.name}`);
+                if (card) {
+                    card.style.borderColor = '#238636';
+                }
+                
+                return true;
+            } catch (err) {
+                log(`❌ ${repo.name}: ${err.message}`, 'error');
+                return false;
+            }
+        }
+        
+        // Mettre à jour tous les repos
+        async function updateAll() {
+            const token = document.getElementById('token').value.trim();
+            
+            if (!token) {
+                alert('Colle ton Personal Access Token !');
+                return;
+            }
+            
+            if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+                if (!confirm('Le token ne ressemble pas à un token GitHub. Continuer quand même ?')) {
+                    return;
+                }
+            }
+            
+            log('🚀 Démarrage mise à jour...', 'info');
+            
+            let success = 0;
+            let failed = 0;
+            
+            for (const repo of REPOS) {
+                const ok = await updateRepo(token, repo);
+                if (ok) success++;
+                else failed++;
+                
+                // Pause pour éviter le rate limiting
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            log(``, 'info');
+            log(`🏁 Terminé: ${success} OK, ${failed} erreurs`, success === REPOS.length ? 'success' : 'error');
+        }
+        
+        // Init
+        renderRepos();
+        log('Prêt. Colle ton token et clique sur le bouton.', 'info');
+    </script>
+</body>
+</html>
