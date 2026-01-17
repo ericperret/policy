@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index.html Generator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 40px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        h1 { color: #58a6ff; margin-bottom: 10px; }
+        .subtitle { color: #8b949e; margin-bottom: 30px; }
+        label { display: block; margin-top: 20px; margin-bottom: 8px; color: #8b949e; }
+        input[type="password"], select {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+        }
+        .btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 25px;
+            width: 100%;
+        }
+        .btn:hover { background: #2ea043; }
+        .btn-scan { background: #1f6feb; margin-top: 10px; }
+        .btn-scan:hover { background: #388bfd; }
+        .btn-all { background: #8957e5; margin-top: 10px; }
+        .btn-all:hover { background: #a371f7; }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.success { display: block; background: #23863633; border: 1px solid #238636; color: #3fb950; }
+        .status.error { display: block; background: #da363333; border: 1px solid #da3633; color: #f85149; }
+        .status.info { display: block; background: #1f6feb33; border: 1px solid #1f6feb; color: #58a6ff; }
+        .file-list {
+            margin-top: 15px;
+            padding: 15px;
+            background: #161b22;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .file-item { padding: 4px 0; color: #58a6ff; }
+        .preview {
+            margin-top: 20px;
+            padding: 15px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #8b949e;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .result-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #161b22;
+            border-radius: 6px;
+            border-left: 3px solid #30363d;
+        }
+        .result-item.ok { border-left-color: #238636; }
+        .result-item.fail { border-left-color: #da3633; }
+        .result-item a { color: #58a6ff; text-decoration: none; }
+        .result-item a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>📑 Index.html Generator</h1>
+    <p class="subtitle">Génère un index.html avec liens vers tous les .html du repo</p>
+    
+    <label>🔑 Token GitHub</label>
+    <input type="password" id="token" placeholder="ghp_...">
+    
+    <label>📦 Repo</label>
+    <select id="repoSelect">
+        <option value="">-- Choisir un repo --</option>
+        <option value="One-Page-One-Mission">One-Page-One-Mission</option>
+        <option value="JPEG2DVB">JPEG2DVB</option>
+        <option value="quizz">quizz</option>
+        <option value="sstv">sstv</option>
+        <option value="Sisimic">Sisimic</option>
+        <option value="photo">photo</option>
+        <option value="code">code</option>
+    </select>
+    
+    <button class="btn btn-scan" onclick="scan()">🔍 Scanner les fichiers</button>
+    
+    <div class="file-list" id="fileList" style="display:none;">
+        <strong>Fichiers .html trouvés :</strong>
+        <div id="fileItems"></div>
+    </div>
+    
+    <div id="previewSection" style="display:none;">
+        <label>👁️ Aperçu index.html généré :</label>
+        <div class="preview" id="preview"></div>
+    </div>
+    
+    <button class="btn" id="btnInject" onclick="inject()" style="display:none;">🚀 Injecter index.html</button>
+    <button class="btn btn-all" onclick="injectAll()">⚡ Scanner + Injecter sur TOUS</button>
+    
+    <div class="status" id="status"></div>
+    <div class="results" id="results"></div>
+
+    <script>
+        const OWNER = 'ericperret';
+        const REPOS = ['One-Page-One-Mission', 'JPEG2DVB', 'quizz', 'sstv', 'Sisimic', 'photo', 'code'];
+        
+        let currentFiles = [];
+        let currentRepo = '';
+        let generatedIndex = '';
+        
+        function showStatus(msg, type) {
+            const el = document.getElementById('status');
+            el.className = 'status ' + type;
+            el.textContent = msg;
+        }
+        
+        function addResult(repo, success, msg) {
+            const el = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'result-item ' + (success ? 'ok' : 'fail');
+            if (success) {
+                div.innerHTML = `<strong>${repo}</strong> ✅ <a href="https://${OWNER}.github.io/${repo}/" target="_blank">Voir</a>`;
+            } else {
+                div.innerHTML = `<strong>${repo}</strong> ❌ ${msg}`;
+            }
+            el.appendChild(div);
+        }
+        
+        async function getHtmlFiles(token, repo) {
+            const url = `https://api.github.com/repos/${OWNER}/${repo}/contents/`;
+            const res = await fetch(url, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+            
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            
+            const files = await res.json();
+            return files
+                .filter(f => f.type === 'file' && f.name.endsWith('.html') && f.name !== 'index.html')
+                .map(f => f.name)
+                .sort();
+        }
+        
+        function generateIndexHtml(repo, files) {
+            const links = files.map(f => {
+                const name = f.replace('.html', '').replace(/-/g, ' ').replace(/_/g, ' ');
+                return `        <li><a href="${f}">${name}</a></li>`;
+            }).join('\n');
+            
+            return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${repo}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 12px 0; border-bottom: 1px solid #21262d; }
+        a {
+            color: #58a6ff;
+            text-decoration: none;
+            font-size: 18px;
+        }
+        a:hover { text-decoration: underline; }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #30363d;
+            font-size: 12px;
+            color: #8b949e;
+        }
+        .footer a { font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>${repo}</h1>
+    <ul>
+${links}
+    </ul>
+    <div class="footer">
+        <a href="https://github.com/${OWNER}/${repo}">View on GitHub</a>
+    </div>
+</body>
+</html>`;
+        }
+        
+        async function scan() {
+            const token = document.getElementById('token').value.trim();
+            const repo = document.getElementById('repoSelect').value;
+            
+            if (!token) { showStatus('❌ Token requis', 'error'); return; }
+            if (!repo) { showStatus('❌ Choisis un repo', 'error'); return; }
+            
+            showStatus('🔍 Scan en cours...', 'info');
+            
+            try {
+                currentRepo = repo;
+                currentFiles = await getHtmlFiles(token, repo);
+                
+                if (currentFiles.length === 0) {
+                    showStatus('⚠️ Aucun fichier .html trouvé', 'error');
+                    return;
+                }
+                
+                // Afficher liste
+                document.getElementById('fileList').style.display = 'block';
+                document.getElementById('fileItems').innerHTML = currentFiles
+                    .map(f => `<div class="file-item">📄 ${f}</div>`).join('');
+                
+                // Générer et afficher preview
+                generatedIndex = generateIndexHtml(repo, currentFiles);
+                document.getElementById('previewSection').style.display = 'block';
+                document.getElementById('preview').textContent = generatedIndex;
+                
+                // Afficher bouton inject
+                document.getElementById('btnInject').style.display = 'block';
+                
+                showStatus(`✅ ${currentFiles.length} fichiers trouvés`, 'success');
+                
+            } catch (err) {
+                showStatus(`❌ Erreur: ${err.message}`, 'error');
+            }
+        }
+        
+        async function pushIndex(token, repo, content) {
+            const url = `https://api.github.com/repos/${OWNER}/${repo}/contents/index.html`;
+            
+            // Vérifier si existe
+            let sha = null;
+            const checkRes = await fetch(url, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+            if (checkRes.ok) {
+                const existing = await checkRes.json();
+                sha = existing.sha;
+            }
+            
+            const body = {
+                message: '📑 Add index.html for GitHub Pages',
+                content: btoa(unescape(encodeURIComponent(content)))
+            };
+            if (sha) body.sha = sha;
+            
+            const res = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+            
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || res.status);
+            }
+        }
+        
+        async function inject() {
+            const token = document.getElementById('token').value.trim();
+            
+            if (!generatedIndex || !currentRepo) {
+                showStatus('❌ Scanne d\'abord', 'error');
+                return;
+            }
+            
+            showStatus('⏳ Injection...', 'info');
+            
+            try {
+                await pushIndex(token, currentRepo, generatedIndex);
+                showStatus(`✅ index.html injecté sur ${currentRepo}`, 'success');
+                document.getElementById('results').innerHTML = '';
+                addResult(currentRepo, true, '');
+            } catch (err) {
+                showStatus(`❌ Erreur: ${err.message}`, 'error');
+            }
+        }
+        
+        async function injectAll() {
+            const token = document.getElementById('token').value.trim();
+            
+            if (!token) { showStatus('❌ Token requis', 'error'); return; }
+            
+            showStatus('⏳ Traitement de tous les repos...', 'info');
+            document.getElementById('results').innerHTML = '';
+            
+            let ok = 0;
+            for (const repo of REPOS) {
+                try {
+                    const files = await getHtmlFiles(token, repo);
+                    if (files.length === 0) {
+                        addResult(repo, false, 'Aucun .html');
+                        continue;
+                    }
+                    
+                    const indexContent = generateIndexHtml(repo, files);
+                    await pushIndex(token, repo, indexContent);
+                    addResult(repo, true, '');
+                    ok++;
+                } catch (err) {
+                    addResult(repo, false, err.message);
+                }
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            showStatus(`✅ Terminé : ${ok}/${REPOS.length}`, 'success');
+        }
+    </script>
+</body>
+</html>
